@@ -1,31 +1,239 @@
+use std::error;
 use std::fmt::{self, Display};
 use rand::prelude::*;
+
+// Define our error types. These may be customized for our error handling cases.
+// Now we will be able to write our own errors, defer to an underlying error
+// implementation, or do something in between.
+#[derive(Debug, Clone)]
+pub enum AIError{
+    Unprocessed,
+    InputMismatch,
+    LengthMismatch,
+}
+
+// Generation of an error is completely separate from how it is displayed.
+// There's no need to be concerned about cluttering complex logic with the display style.
+//
+// Note that we don't store any extra info about the errors. This means we can't state
+// which string failed to parse without modifying our types to carry that information.
+impl fmt::Display for AIError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AIError::Unprocessed => {
+                write!(f, "Network needs processing")
+            },
+            AIError::InputMismatch => { 
+                write!(f, "Input does not match")
+            },
+            AIError::LengthMismatch => { 
+                write!(f, "Wrong number of inputs provided to network")
+            }
+        }
+    }
+}
+
+// This is important for other errors to wrap this one.
+impl error::Error for AIError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        // Generic error, underlying cause isn't tracked.
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Activation {
+    Sigmoid,
+    Tanh,
+    RectifiedLinear,
+}
+
+pub struct NetworkBuilder{
+    n_inputs: usize,
+    n_outputs: usize,
+    layers: Vec<(usize, usize, Activation)>,
+}
+
+impl NetworkBuilder {
+    pub fn new(n_inputs: usize) -> NetworkBuilder {
+        NetworkBuilder{
+            n_inputs,
+            n_outputs: 0,
+            layers: Vec::new(),
+        }
+    }
+
+    pub fn add_layer(&mut self, n_nodes: usize, activation_function: Activation) -> &mut NetworkBuilder {
+        if self.layers.len() == 0 {
+            self.layers.push( (self.n_inputs, n_nodes, activation_function) );
+        } else {
+            let last_n_outputs = self.layers.last().unwrap().1;
+            self.layers.push( (last_n_outputs, n_nodes, activation_function) );
+        }
+        
+        self.n_outputs = n_nodes;
+
+        self
+    }
+
+    pub fn build(&self) -> Option<NeuralNetwork> {
+        let mut layers: Vec<Layer> = Vec::new();
+
+        for (n_inputs, n_outputs, activation_function) in &self.layers {
+            layers.push( Layer::new_with_rand(*n_inputs, *n_outputs, activation_function.clone()) );
+        }
+
+        // Create the NeuralNetwork struct
+        Some(NeuralNetwork {
+            n_inputs: self.n_inputs,
+            n_outputs: self.n_outputs,
+            layers,
+            last_input: None,
+        })
+    }
+}
+
+pub struct NeuralNetwork {
+    n_inputs: usize,
+    n_outputs: usize,
+    layers: Vec<Layer>,
+    last_input: Option<Vec<f32>>,
+}
+
+impl NeuralNetwork {
+    fn check_input(&self, input: &Vec<f32>) -> Result<(), AIError> {
+
+        // Check there was a last value
+        if let Some(l_in) = &self.last_input {
+            // Check the length
+            if l_in.len() != input.len() {
+                return Err(AIError::LengthMismatch);
+            }
+            // Check values
+            for (i, in_value) in l_in.iter().enumerate() {
+                if input[i] != *in_value {
+                    return Err(AIError::InputMismatch);
+                }
+            }
+        } else {
+            return Err(AIError::Unprocessed);
+        }
+
+        Ok(())
+    }
+
+    pub fn feedforward(&mut self, input: &Vec<f32>) -> Result<Vec<f32>, AIError> {
+        if let Ok(()) = self.check_input(input) {
+            self.process()?;
+        } else {
+            self.last_input = Some(input.clone());
+            self.process()?;
+        }
+
+        let last_layer = self.layers.last().unwrap();
+        if let Some(output) = &last_layer.output {
+            Ok( output.clone() )
+        }  else {
+            Err(AIError::InputMismatch)
+        }
+        
+    }
+
+    fn process(&mut self) -> Result<(), AIError> {
+        let mut layer_input = self.last_input.clone();
+
+        for layer in &mut self.layers{
+            if let Some( input ) = layer_input {
+                layer.process( &input )?;
+                layer_input = layer.output.clone();
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn backproporgate(&mut self, input: &Vec<f32>, result: &Vec<f32>) -> Result<(), AIError> {
+        if let Err(_) = self.check_input(input){
+            self.last_input = Some(input.clone());
+            self.process()?;
+        };
+
+        // Calc errors specifically for the network output
+        let last_layer = self.layers.last().unwrap();
+        let mut backprop_errors = calc_output_layer_error( &last_layer.output.as_ref().unwrap(), &result )?;
+        
+        // Calcs error as a scalar value
+        //let current_error = calc_average_sum_square(&error)
+        for i in (0..self.layers.len()).rev() {
+            let (layers_left, layers_right) = self.layers.split_at_mut(i);
+            let layer = layers_right.first_mut().unwrap();   
+            let activation_derivative = derivative_sigmoid(&layer.activation_inputs);
+            
+            let layer_input: &Vec<f32> = if i==0 {
+                input
+            } else {
+                layers_left.last().unwrap().output.as_ref().unwrap()
+            };
+
+            let weight_derivative = layer.calc_output_weight_derivatives(layer_input, &backprop_errors, &activation_derivative)?;
+            // Update the weights for that layer
+            layer.update_weights( 0.8 , &weight_derivative );
+
+            // Calc the error to backproporgate
+            backprop_errors = layer.calc_backprop_errors(backprop_errors, activation_derivative);
+        }
+
+        Ok(())
+    } 
+}
+
+impl Display for NeuralNetwork {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // The `f` value implements the `Write` trait, which is what the
+        // write! macro is expecting. Note that this formatting ignores the
+        // various flags provided to format strings.
+
+        for (i, layer) in self.layers.iter().enumerate() {
+            writeln!(f, "Layer {}, inputs: {}, outputs: {}, activation: {:?}", i, layer.n_inputs, layer.n_outputs, layer.activation_function )?;
+        }
+        
+        write!(f,"")
+    }
+}
 
 pub struct Layer {
     n_inputs: usize,
     n_outputs: usize,
     n_weights: usize,
     weights: Vec<f32>,
+    activation_function: Activation,
+    activation_inputs: Vec<f32>,
+    output: Option<Vec<f32>>,
 }
 
 impl Layer {
-    pub fn new(n_inputs: usize, n_outputs: usize) -> Layer {
+    pub fn new(n_inputs: usize, n_outputs: usize, activation_function: Activation) -> Layer {
         
         let n_weights = n_inputs * n_outputs;
 
         let mut weights = Vec::with_capacity( n_weights );
         weights.resize( n_weights , 0.0 );
+
+        let activation_inputs = Vec::with_capacity( n_inputs );
         
         Layer {
             n_inputs,
             n_outputs,
             n_weights,
             weights,
+            activation_function,
+            activation_inputs,
+            output: None
         }
     }
 
-    pub fn new_with_rand(n_inputs: usize, n_outputs: usize) -> Layer {
-        let mut new_layer = Layer::new( n_inputs, n_outputs );
+    pub fn new_with_rand(n_inputs: usize, n_outputs: usize, activation_function: Activation) -> Layer {
+        let mut new_layer = Layer::new( n_inputs, n_outputs, activation_function);
         
         let mut rng = rand::thread_rng();
 
@@ -44,11 +252,27 @@ impl Layer {
         Ok(self.weights[input_index * self.n_outputs + output_index])
     }
 
-    pub fn gen_activation_inputs(&self, input: &Vec<f32>) -> Result<Vec<f32>, &'static str> {
+    fn process(&mut self, input: &Vec<f32>) -> Result<(), AIError> {
+        if input.len() != self.n_inputs {
+            println!("My n_inputs: {}, Vector given: {}", self.n_inputs, input.len());
+            return Err(AIError::LengthMismatch);
+        }
+
+        self.gen_activation_inputs(input)?;
+        self.output = match self.activation_function {
+                    Activation::Sigmoid => Some(activation_sigmoid( &self.activation_inputs )),
+                    Activation::Tanh => Some(activation_tanh( &self.activation_inputs )),
+                    Activation::RectifiedLinear => Some(activation_rectified_linear( &self.activation_inputs)),
+                };
+
+        Ok(())
+    }
+
+    pub fn gen_activation_inputs(&mut self, input: &Vec<f32>) -> Result<Vec<f32>, AIError> {
         let mut output: Vec<f32> = Vec::with_capacity( self.n_outputs );
 
         if input.len() != self.n_inputs {
-            return Err("Input to layer is the wrong size");
+            return Err(AIError::InputMismatch);
         }
 
         for output_index in 0..self.n_outputs {
@@ -62,10 +286,12 @@ impl Layer {
             output.push(out_val);
         }
 
+        self.activation_inputs = output.clone();
+
         Ok(output)
     }
 
-    pub fn calc_output_weight_derivatives( &self, input: &Vec<f32>, output_error: &Vec<f32>, activation_derivative: &Vec<f32>) -> Result<Vec<f32>, &'static str> {
+    pub fn calc_output_weight_derivatives( &self, input: &Vec<f32>, output_error: &Vec<f32>, activation_derivative: &Vec<f32>) -> Result<Vec<f32>, AIError> {
         if self.n_inputs == input.len() && self.n_outputs == output_error.len() && self.n_outputs == activation_derivative.len() {
 
             let mut weight_derivatives = self.weights.clone();
@@ -79,7 +305,7 @@ impl Layer {
             Ok(weight_derivatives)
 
         } else {
-            Err("Vector length error")
+            Err(AIError::LengthMismatch)
         }
     }
 
@@ -200,7 +426,7 @@ pub fn derivative_rectified_linear( input: &Vec<f32> ) -> Vec<f32> {
     output
 }
 
-pub fn calc_output_layer_error( output: &Vec<f32>, expected: &Vec<f32> ) -> Result<Vec<f32>, &'static str> {
+pub fn calc_output_layer_error( output: &Vec<f32>, expected: &Vec<f32> ) -> Result<Vec<f32>, AIError> {
     if output.len() == expected.len() {
         let mut error = output.clone();
 
@@ -210,7 +436,7 @@ pub fn calc_output_layer_error( output: &Vec<f32>, expected: &Vec<f32> ) -> Resu
 
         Ok( error )
     } else {
-        Err("Output Vector and Expected Vector need to be the same length")
+        Err(AIError::LengthMismatch)
     }
 }
 

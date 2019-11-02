@@ -14,8 +14,8 @@ fn main() {
 
 
     // Create a layer
-    let mut first_layer = Layer::new_with_rand( 2, 2 );
-    let mut second_layer = Layer::new_with_rand( 2, 2 );
+    let mut first_layer = Layer::new_with_rand( 2, 3, Activation::Sigmoid );
+    let mut second_layer = Layer::new_with_rand( 3, 2, Activation::Sigmoid );
 
     let mut run = true;
     let mut run_count = 0;
@@ -35,11 +35,11 @@ fn main() {
         current_error = calc_average_sum_square(&out_error);
 
         let activation_derivative_second = derivative_sigmoid(&activation_inputs_second);
-        let weight_derivative_second = second_layer.calc_output_weight_derivatives(&norm_input, &out_error, &activation_derivative_second).unwrap();
+        let weight_derivative_second = second_layer.calc_output_weight_derivatives(&output_first, &out_error, &activation_derivative_second).unwrap();
         let backprop_errors_second = second_layer.calc_backprop_errors(out_error, activation_derivative_second);
 
         let activation_derivative_first = derivative_sigmoid(&activation_inputs_first);
-        let weight_derivative_first = first_layer.calc_output_weight_derivatives(&output_first, &backprop_errors_second, &activation_derivative_first).unwrap();
+        let weight_derivative_first = first_layer.calc_output_weight_derivatives(&norm_input, &backprop_errors_second, &activation_derivative_first).unwrap();
         
         // Update the weights
         first_layer.update_weights( 0.8 , &weight_derivative_first );
