@@ -9,8 +9,12 @@ rand = "0.7.0"
 
 [[bin]]
 name = "example_01"
-path = "src/example_01.rs"
+path = "src/examples/example_01.rs"
 
 [[bin]]
 name = "example_02"
-path = "src/example_02.rs"
+path = "src/examples/example_02.rs"
+
+[[bin]]
+name = "example_03"
+path = "src/examples/example_03.rs"

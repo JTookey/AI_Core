@@ -440,6 +440,25 @@ pub fn calc_output_layer_error( output: &Vec<f32>, expected: &Vec<f32> ) -> Resu
     }
 }
 
+// Function to calc the max of a vector
+pub fn calc_vec_max( input: &Vec<f32> ) -> Vec<f32> {
+    let mut max: f32 = -1.0;
+    let mut max_idx = 0;
+    let l = input.len();
+    let mut output: Vec<f32> = Vec::with_capacity(l);
+    for i in 0..l {
+        output.push(0.0);
+
+        if input[i] > max {
+            max = input[i];
+            max_idx = i;
+        }
+    }
+    output[max_idx] = 1.0;
+
+    output
+}
+
 /// Function for normalising a vector between a couple of values
 pub fn normalise( input: &Vec<f32>, input_min: f32, input_max: f32, output_min: f32, output_max: f32 ) -> Vec<f32> {
     // Create the vector
@@ -451,6 +470,21 @@ pub fn normalise( input: &Vec<f32>, input_min: f32, input_max: f32, output_min: 
 
     // return the output vector
     output
+}
+
+/// Function for element wise multiplication
+pub fn multiply_vec( in_1: &Vec<f32>, in_2: &Vec<f32>) -> Result<Vec<f32>, AIError> {
+    if in_1.len() != in_2.len() {
+        return Err(AIError::LengthMismatch);
+    }
+
+    let mut out: Vec<f32> = Vec::new();
+    
+    for i in 0..in_1.len() {
+        out.push( in_1[i] * in_2[i] );
+    }
+
+    Ok(out)
 }
 
 /// Function to linearly interpolate
