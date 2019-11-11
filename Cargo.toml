@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 rand = "0.7.0"
+ndarray = "0.13.0"
 
 [[bin]]
 name = "example_01"

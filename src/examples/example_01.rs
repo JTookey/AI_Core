@@ -1,4 +1,5 @@
-use ai_core::*;
+use ai_core::layer::*;
+use ai_core::util::calc_average_sum_square;
 
 fn main() {
     println!("I think and therefore I am!\n");
