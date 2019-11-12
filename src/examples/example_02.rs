@@ -1,4 +1,6 @@
-use ai_core::*;
+use ai_core::layer::*;
+use ai_core::network::*;
+use ai_core::util::*;
 
 fn main() {
     let mut nn = NetworkBuilder::new(2)

@@ -1,4 +1,6 @@
-use ai_core::*;
+use ai_core::layer::*;
+use ai_core::network::*;
+use ai_core::err::*;
 
 fn main() {
     // Create Need-Action NN

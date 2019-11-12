@@ -19,7 +19,7 @@ impl NetworkBuilder {
         }
     }
 
-    pub fn add_layer(&mut self, n_nodes: usize, activation_function: Activation) -> &mut NetworkBuilder {
+    pub fn add_layer(&mut self, n_nodes: usize, activation_function: Activation) -> &mut Self {
         if self.layers.len() == 0 {
             self.layers.push( (self.n_inputs, n_nodes, activation_function) );
         } else {
