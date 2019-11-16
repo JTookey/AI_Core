@@ -1,5 +1,6 @@
 /// Basic utility functions
 
+use ndarray::Array1;
 use rand::prelude::*;
 
 /// Create vector with random numbers
@@ -17,13 +18,29 @@ pub fn new_random_vec<T>( len: usize ) -> Vec<T>
     out
 }
 
+/// Function for normalising a 1D array
+pub fn normalise<'a, T>( array: &'a mut Array1<T>, input_min: T, input_max: T, output_min: T, output_max: T )
+    where T
+        : num_traits::NumOps
+        + std::cmp::PartialOrd 
+        + Copy + Clone,
+        // This needs cleaning up using the num_traits, but for the time being it helps me with clarity
+{
+    for elem in array.iter_mut() {
+        if *elem < input_min {
+            *elem = output_min;
+        } else if *elem > input_max {
+            *elem = output_max;
+        } else {
+            *elem = lin_interp::<T>(*elem, input_min, input_max, output_min, output_max);
+        }
+    }
+}
+
 /// Function to linearly interpolate
 pub fn lin_interp<T>( input: T, input_min: T, input_max: T, output_min: T, output_max: T ) -> T 
     where T
-        : std::ops::Add<Output = T> 
-        + std::ops::Sub<Output = T> 
-        + std::ops::Mul<Output = T> 
-        + std::ops::Div<Output = T> 
+        : num_traits::NumOps
         + Copy
 {
     output_min + (output_max - output_min) * (input - input_min) / (input_max - input_min)

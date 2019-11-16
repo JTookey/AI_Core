@@ -33,10 +33,10 @@ impl NetworkBuilder {
     }
 
     pub fn build(&self) -> Option<NeuralNetwork> {
-        let mut layers: Vec<Layer> = Vec::new();
+        let mut layers: Vec<BasicLayer> = Vec::new();
 
         for (n_inputs, n_outputs, activation_function) in &self.layers {
-            layers.push( Layer::new_with_rand(*n_inputs, *n_outputs, activation_function.clone()) );
+            layers.push( BasicLayer::new_with_rand(*n_inputs, *n_outputs, activation_function.clone()) );
         }
 
         // Create the NeuralNetwork struct
@@ -52,7 +52,7 @@ impl NetworkBuilder {
 pub struct NeuralNetwork {
     n_inputs: usize,
     n_outputs: usize,
-    layers: Vec<Layer>,
+    layers: Vec<BasicLayer>,
     last_input: Option<Vec<f32>>,
 }
 

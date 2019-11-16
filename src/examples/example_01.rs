@@ -15,8 +15,8 @@ fn main() {
 
 
     // Create a layer
-    let mut first_layer = Layer::new_with_rand( 2, 3, Activation::Sigmoid );
-    let mut second_layer = Layer::new_with_rand( 3, 2, Activation::Sigmoid );
+    let mut first_layer = BasicLayer::new_with_rand( 2, 3, Activation::Sigmoid );
+    let mut second_layer = BasicLayer::new_with_rand( 3, 2, Activation::Sigmoid );
 
     let mut run = true;
     let mut run_count = 0;

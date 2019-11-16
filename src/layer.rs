@@ -1,7 +1,7 @@
 /// Layers module provides all the core functionality for creating and computing the layers of a Neural Network
 
 use std::fmt::{self, Display};
-use ndarray::{arr1, ArrayBase, Shape};
+use ndarray::{Array, Ix1, Ix2};
 use crate::err::AIError;
 use crate::util::*;
 
@@ -17,9 +17,49 @@ pub enum Activation {
     RectifiedLinear,
 }
 
+// Setup basic types to be used in the crate
+type AIVec = Array<f64, Ix1>;
+type AIWeights = Array<f64, Ix2>;
+
+/// The Layer trait
+pub trait Layer
+{
+    fn feedforward(&mut self, input: &AIVec );
+    fn get_output(&self);
+}
+
+/// The Layer Structure
+pub struct BaseLayer
+{
+    n_inputs: usize,
+    n_outputs: usize,
+    input_weights: AIWeights,
+    bias_weights: AIVec,
+    activation_inputs: AIVec,
+    output: AIVec,
+    activation_function: Activation,
+}
+
+// Implement the Layer trait
+impl Layer for BaseLayer
+{
+    fn feedforward(&mut self, input: &AIVec ){
+        self.activation_inputs = self.input_weights.dot( input );
+        match self.activation_function{
+            Activation::Sigmoid => {},
+            Activation::Tanh => {},
+            Activation::RectifiedLinear => {},
+        }
+    }
+
+    fn get_output(&self){
+
+    }
+}
+
 
 /// The Layer structure
-pub struct Layer {
+pub struct BasicLayer {
     pub n_inputs: usize,
     pub n_outputs: usize,
     n_weights: usize,
@@ -29,7 +69,7 @@ pub struct Layer {
     pub output: Option<Vec<f32>>,
 }
 
-impl Layer {
+impl BasicLayer {
     pub fn new(n_inputs: usize, n_outputs: usize, activation_function: Activation) -> Self {
 
         let n_weights = n_inputs * n_outputs;
@@ -39,7 +79,7 @@ impl Layer {
 
         let activation_inputs = Vec::with_capacity( n_inputs );
         
-        Layer {
+        BasicLayer {
             n_inputs,
             n_outputs,
             n_weights,
@@ -51,7 +91,7 @@ impl Layer {
     }
 
     pub fn new_with_rand(n_inputs: usize, n_outputs: usize, activation_function: Activation) -> Self {
-        let mut new_layer = Layer::new( n_inputs, n_outputs, activation_function);
+        let mut new_layer = BasicLayer::new( n_inputs, n_outputs, activation_function);
         
         let mut rand_vec = new_random_vec::<f32>( new_layer.weights.len() );
 
@@ -154,7 +194,7 @@ impl Layer {
     }
 }
 
-impl Display for Layer {
+impl Display for BasicLayer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // The `f` value implements the `Write` trait, which is what the
         // write! macro is expecting. Note that this formatting ignores the

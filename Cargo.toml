@@ -7,10 +7,17 @@ edition = "2018"
 [dependencies]
 rand = "0.7.0"
 ndarray = "0.13.0"
+ndarray-rand = "0.11.0"
+#ndarray-linalg = { version = "0.12", features = ["openblas"] }
+num-traits = "0.2.9"
 
 [[bin]]
 name = "example_01"
 path = "src/examples/example_01.rs"
+
+[[bin]]
+name = "example_012"
+path = "src/examples/example_012.rs"
 
 [[bin]]
 name = "example_02"
