@@ -1,5 +1,6 @@
 /// Basic utility functions
 
+use std::f64;
 use ndarray::Array1;
 use rand::prelude::*;
 
@@ -47,15 +48,31 @@ pub fn lin_interp<T>( input: T, input_min: T, input_max: T, output_min: T, outpu
 }
 
 /// Function to calculate error
-pub fn calc_average_sum_square( vector: &Vec<f32> ) -> f32 {
-    let mut average_sum_square: f32 = 0.0;
+pub fn calc_average_sum_square( vector: &Vec<f64> ) -> f64 {
+    let mut average_sum_square: f64 = 0.0;
 
     for index in 0..vector.len() {
         average_sum_square += vector[index].powi(2);
     }
 
-    average_sum_square /= vector.len() as f32;
+    average_sum_square /= vector.len() as f64;
 
     // return
     average_sum_square
+}
+
+/// Function to calculate the max
+pub fn calc_index_of_max( vector: &Array1<f64>) -> usize {
+    
+    let mut max_found = f64::MIN;
+    let mut max_index = 0;
+
+    for (i, v) in vector.iter().enumerate() {
+        if v > &max_found {
+            max_found = *v;
+            max_index = i;
+        }
+    }
+
+    max_index
 }

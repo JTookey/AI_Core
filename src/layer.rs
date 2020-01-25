@@ -1,9 +1,14 @@
 /// Layers module provides all the core functionality for creating and computing the layers of a Neural Network
 
 use std::fmt::{self, Display};
-use ndarray::{Array, Ix1, Ix2};
+
+use ndarray::{Zip, linalg};
+use ndarray_rand::RandomExt;
+use ndarray_rand::rand_distr::Uniform;
+
 use crate::err::AIError;
 use crate::util::*;
+use crate::{AIVec, AIWeights};
 
 /// Enumeration for the activation functions supported
 /// - Sigmoid
@@ -17,15 +22,14 @@ pub enum Activation {
     RectifiedLinear,
 }
 
-// Setup basic types to be used in the crate
-type AIVec = Array<f64, Ix1>;
-type AIWeights = Array<f64, Ix2>;
-
 /// The Layer trait
 pub trait Layer
 {
-    fn feedforward(&mut self, input: &AIVec );
-    fn get_output(&self);
+    fn get_n_inputs(&self) -> usize;
+    fn get_n_outputs(&self) -> usize;
+    fn get_activation(&self) -> Activation;
+    fn feedforward(&mut self, input: &AIVec, output: &mut AIVec);
+    fn backproporgate(&mut self, input: &AIVec, error: &AIVec, backprop_error: &mut AIVec, learn_rate: f64);
 }
 
 /// The Layer Structure
@@ -36,24 +40,110 @@ pub struct BaseLayer
     input_weights: AIWeights,
     bias_weights: AIVec,
     activation_inputs: AIVec,
-    output: AIVec,
+    activation_derivative: AIVec,
+    delta: AIVec,
     activation_function: Activation,
+    backprop_errors: AIVec,
+}
+
+impl BaseLayer {
+    pub fn new( n_inputs: usize, n_outputs: usize, activation_function: Activation) -> Self {
+        // Create weights between 1 and -1
+        let input_weights = AIWeights::random((n_outputs, n_inputs), Uniform::new( -1.0, 1.0 ));
+        // Create bias array initially 0
+        let bias_weights = AIVec::zeros( n_outputs );
+
+        // Create the required arrays
+        let activation_inputs = AIVec::zeros( n_outputs );
+        let output = AIVec::zeros( n_outputs );
+        let error = AIVec::zeros( n_outputs );
+        let total_error: f64 = 0.0;
+        let activation_derivative = AIVec::zeros( n_outputs );
+        let delta = AIVec::zeros( n_outputs ); // b_der
+        //let w_der = AIWeights::zeros( (n_outputs, n_inputs) );
+        let backprop_errors = AIVec::zeros( n_inputs );
+
+        BaseLayer{
+            n_inputs,
+            n_outputs,
+            input_weights,
+            bias_weights,
+            activation_inputs,
+            activation_derivative,
+            delta,
+            activation_function,
+            backprop_errors,
+        }
+    }
 }
 
 // Implement the Layer trait
 impl Layer for BaseLayer
 {
-    fn feedforward(&mut self, input: &AIVec ){
-        self.activation_inputs = self.input_weights.dot( input );
-        match self.activation_function{
-            Activation::Sigmoid => {},
-            Activation::Tanh => {},
-            Activation::RectifiedLinear => {},
-        }
+    // Function to return the number of inputs to the layer
+    fn get_n_inputs(&self) -> usize {
+        self.n_inputs
     }
 
-    fn get_output(&self){
+    // Function to return the number of outputs to the layer
+    fn get_n_outputs(&self) -> usize {
+        self.n_outputs
+    }
 
+    // Function to return the type of activation function the layer is using
+    fn get_activation(&self) -> Activation {
+        self.activation_function.clone()
+    }
+
+    fn feedforward(&mut self, input: &AIVec, output: &mut AIVec){
+        // Step 1 - Calculate the Activation Input
+        Zip::from(&mut self.activation_inputs).apply(|x| *x = 0.0);
+        linalg::general_mat_vec_mul(1.0, &self.input_weights, input, 1.0, &mut self.activation_inputs);
+        self.activation_inputs += &self.bias_weights;
+
+        // Step 2 - Calculate the Activation (i.e. the output) for Sigmoid
+        Zip::from( output )
+            .and( &self.activation_inputs )
+            .apply( | output, &input |  *output = sigmoid(input) );
+    }
+
+    fn  backproporgate(&mut self, input: &AIVec, error: &AIVec, backprop_error: &mut AIVec, learn_rate: f64) {
+        // Step 1 - Calculate the Activation Input
+        self.activation_inputs.fill(0.0);
+        linalg::general_mat_vec_mul(1.0, &self.input_weights, input, 1.0, &mut self.activation_inputs);
+        self.activation_inputs += &self.bias_weights;
+
+        // Step 2 - Calculate the Activation Derivative (length of activation input)
+        Zip::from( &mut self.activation_derivative)
+            .and( &self.activation_inputs )
+            .apply( | a_d, &a_i | *a_d = sigmoid_derivative( a_i ) );
+
+        // Step 3 - Calculate the Bias Derivative
+        Zip::from( &mut self.delta )
+            .and( &self.activation_derivative )
+            .and( error )
+            .apply( |b_der, &act_der, &error| *b_der = act_der*error );
+
+        
+        // Step 4 - Calculate the Weight Derivative - (reusing b_der as this is act_d * error)
+        for (i, delta) in self.delta.iter().enumerate() {
+            for (j, inp) in input.iter().enumerate() {
+                self.input_weights[[i,j]] -= delta * inp * learn_rate;
+            }
+        }
+
+        // Step 5 - Update Weights
+        self.bias_weights.zip_mut_with( &self.delta, | b, &d | *b -= d * learn_rate );
+
+        // Step 6 - Calculate error to backproporgate
+        backprop_error.fill(0.0);
+        for input_index in 0..self.n_inputs {
+            for output_index in 0..self.n_outputs {
+
+                backprop_error[input_index] += &error[output_index] * &self.activation_derivative[output_index] * &self.input_weights[[output_index, input_index]];
+
+            }
+        }
     }
 }
 
@@ -213,6 +303,17 @@ impl Display for BasicLayer {
     }
 }
 
+// Sigmoid Function - single value
+fn sigmoid(input: f64) -> f64 {
+    1.0 / (1.0 + (-1.0 * input).exp())
+}
+
+// Sigmoid Derivative - single value
+fn sigmoid_derivative(input: f64) -> f64 {
+    let s = sigmoid(input);
+    s * (1.0 - s)
+}
+
 pub fn activation_sigmoid( input: &Vec<f32> ) -> Vec<f32> {
     let mut output = input.clone();
 
@@ -318,17 +419,17 @@ pub fn calc_vec_max( input: &Vec<f32> ) -> Vec<f32> {
 }
 
 /// Function for normalising a vector between a couple of values
-pub fn normalise( input: &Vec<f32>, input_min: f32, input_max: f32, output_min: f32, output_max: f32 ) -> Vec<f32> {
-    // Create the vector
-    let mut output: Vec<f32> = Vec::new();
+// pub fn normalise( input: &Vec<f32>, input_min: f32, input_max: f32, output_min: f32, output_max: f32 ) -> Vec<f32> {
+//     // Create the vector
+//     let mut output: Vec<f32> = Vec::new();
 
-    for val in input {
-        output.push( lin_interp(*val, input_min, input_max, output_min, output_max) );
-    }
+//     for val in input {
+//         output.push( lin_interp(*val, input_min, input_max, output_min, output_max) );
+//     }
 
-    // return the output vector
-    output
-}
+//     // return the output vector
+//     output
+// }
 
 /// Function for element wise multiplication
 pub fn multiply_vec( in_1: &Vec<f32>, in_2: &Vec<f32>) -> Result<Vec<f32>, AIError> {

@@ -1,34 +1,43 @@
 use ai_core::layer::*;
 use ai_core::network::*;
-use ai_core::util::*;
+use ai_core::AIVec;
+
+use ndarray::arr1;
 
 fn main() {
+    // Create a Feedforward NeuralNetwork with 2 inputs, 3 layers and 4 outputs
+    // First Layer
     let mut nn = NetworkBuilder::new(2)
-        .add_layer(3, Activation::Sigmoid)
-        .add_layer(5, Activation::Sigmoid)
-        .add_layer(4, Activation::Sigmoid)
+        .add_layer(3, Activation::Sigmoid) // First layer has 2 inputs and 3 nodes
+        .add_layer(5, Activation::Sigmoid) // Second layer has 3 inputs and 5 nodes
+        .add_layer(4, Activation::Sigmoid) // Third layer has 5 inputs and 4 nodes
         .build().expect("Oops");
 
+    // Print the network for debug purposes
     println!("{}",nn);
 
-    let input: Vec<f32> = vec![0.5, 0.8];
-    let result = vec![0.1, 0.1, 0.1, 0.1];
+    // Create the AIVec that will hold the inputs and outputs of the network
+    let input: AIVec = arr1( &[0.5, 0.8] );
+    let mut output: AIVec = AIVec::zeros( 4 );
+    let expected = arr1( &[0.1, 0.1, 0.1, 0.1] );
 
-    match nn.feedforward(&input) {
-        Ok(output) => println!("Output {:?}\nError {}"
-            ,output
-            ,calc_average_sum_square(&calc_output_layer_error(&output, &result).unwrap())),
-        Err(e) => eprintln!("{}", e),
-    }
+    // Run the inputs through the network for the first time
+    match nn.feedforward(&input, &mut output) {
+        Ok(()) => { println!("Output {}", output); },
+        Err(e) => { eprintln!("{}", e); },
+    };
+
+    // Calculate the error at the start
+    println!("Error Before: {}", nn.calculate_error(&input, &expected).unwrap()); 
     
-    if let Err(e) = nn.backproporgate(&input, &result){
-      eprintln!("{}",e);  
-    } 
-
-    match nn.feedforward(&input) {
-        Ok(output) => println!("Output {:?}\nError {}"
-            ,output
-            ,calc_average_sum_square(&calc_output_layer_error(&output, &result).unwrap())),
-        Err(e) => eprintln!("{}", e),
+    // Loop through a number of backproporgation cycles
+    for i in 0..10 {
+        // Carry out backproporgation
+        if let Err(e) = nn.backproporgate(&input, &expected){
+            eprintln!("{}",e);  
+        }
+      
+        // Recalculate the error
+        println!("Error After {}: {:.6}", i, nn.calculate_error(&input, &expected).unwrap()); 
     }
 }
