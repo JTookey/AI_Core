@@ -111,6 +111,22 @@ pub struct NeuralNetwork {
 }
 
 impl NeuralNetwork {
+
+    fn number_of_inputs(&self) -> usize {
+        self.n_inputs
+    }
+
+    fn number_of_outputs(&self) -> usize {
+        self.n_outputs
+    }
+
+    fn number_of_layers(&self) -> usize {
+        self.n_layers
+    }
+
+    fn layers(&self) -> &Vec<BaseLayer> {
+        &self.layers
+    }
     
     // TODO: Decide if we even want this function
     fn check_input(&self, input: &AIVec) -> Result<(), AIError> {
@@ -186,7 +202,7 @@ impl NeuralNetwork {
             //println!("{}", error);
 
             if ri == 0 {
-                // TODO: Implement alternate backproporgation function fro first layer 
+                // TODO: Implement alternate backproporgation function for first layer 
                 //  that does not generate backprop_errors 
                 layer.backproporgate(&input, error, &mut unused_backprop_err, 0.8 ); 
             } else {
