@@ -23,16 +23,19 @@ pub enum Activation {
 }
 
 /// The Layer trait
+/// 
 pub trait Layer
 {
     fn get_n_inputs(&self) -> usize;
     fn get_n_outputs(&self) -> usize;
     fn get_activation(&self) -> Activation;
+    fn get_weight(&self, input_index: usize, output_index: usize) -> Option<&f64>;
     fn feedforward(&mut self, input: &AIVec, output: &mut AIVec);
     fn backproporgate(&mut self, input: &AIVec, error: &AIVec, backprop_error: &mut AIVec, learn_rate: f64);
 }
 
 /// The Layer Structure
+/// 
 pub struct BaseLayer
 {
     n_inputs: usize,
@@ -52,7 +55,6 @@ impl BaseLayer {
         let input_weights = AIWeights::random((n_outputs, n_inputs), Uniform::new( -1.0, 1.0 ));
         // Create bias array initially 0
         let bias_weights = AIVec::zeros( n_outputs );
-
         // Create the required arrays
         let activation_inputs = AIVec::zeros( n_outputs );
         let output = AIVec::zeros( n_outputs );
@@ -77,7 +79,7 @@ impl BaseLayer {
     }
 }
 
-// Implement the Layer trait
+/// Implement the Layer trait
 impl Layer for BaseLayer
 {
     // Function to return the number of inputs to the layer
@@ -93,6 +95,10 @@ impl Layer for BaseLayer
     // Function to return the type of activation function the layer is using
     fn get_activation(&self) -> Activation {
         self.activation_function.clone()
+    }
+
+    fn get_weight(&self, input_index: usize, output_index: usize) -> Option<&f64> {
+        self.input_weights.get([output_index,input_index])
     }
 
     fn feedforward(&mut self, input: &AIVec, output: &mut AIVec){
@@ -183,7 +189,7 @@ impl BasicLayer {
     pub fn new_with_rand(n_inputs: usize, n_outputs: usize, activation_function: Activation) -> Self {
         let mut new_layer = BasicLayer::new( n_inputs, n_outputs, activation_function);
         
-        let mut rand_vec = new_random_vec::<f32>( new_layer.weights.len() );
+        let rand_vec = new_random_vec::<f32>( new_layer.weights.len() );
 
         for i in 0..new_layer.weights.len() {
             new_layer.weights[i] = rand_vec[i];
@@ -212,7 +218,6 @@ impl BasicLayer {
                     Activation::Tanh => Some(activation_tanh( &self.activation_inputs )),
                     Activation::RectifiedLinear => Some(activation_rectified_linear( &self.activation_inputs)),
                 };
-
         Ok(())
     }
 
@@ -303,12 +308,12 @@ impl Display for BasicLayer {
     }
 }
 
-// Sigmoid Function - single value
+/// Sigmoid Function - single value
 fn sigmoid(input: f64) -> f64 {
     1.0 / (1.0 + (-1.0 * input).exp())
 }
 
-// Sigmoid Derivative - single value
+/// Sigmoid Derivative - single value
 fn sigmoid_derivative(input: f64) -> f64 {
     let s = sigmoid(input);
     s * (1.0 - s)
@@ -399,7 +404,7 @@ pub fn calc_output_layer_error( output: &Vec<f32>, expected: &Vec<f32> ) -> Resu
     }
 }
 
-// Function to calc the max of a vector
+/// Function to calc the max of a vector
 pub fn calc_vec_max( input: &Vec<f32> ) -> Vec<f32> {
     let mut max: f32 = std::f32::MIN;
     let mut max_idx = 0;

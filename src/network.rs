@@ -112,19 +112,19 @@ pub struct NeuralNetwork {
 
 impl NeuralNetwork {
 
-    fn number_of_inputs(&self) -> usize {
+    pub fn number_of_inputs(&self) -> usize {
         self.n_inputs
     }
 
-    fn number_of_outputs(&self) -> usize {
+    pub fn number_of_outputs(&self) -> usize {
         self.n_outputs
     }
 
-    fn number_of_layers(&self) -> usize {
+    pub fn number_of_layers(&self) -> usize {
         self.n_layers
     }
 
-    fn layers(&self) -> &Vec<BaseLayer> {
+    pub fn layers(&self) -> &Vec<BaseLayer> {
         &self.layers
     }
     
