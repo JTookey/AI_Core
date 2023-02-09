@@ -116,7 +116,7 @@ impl Layer for BaseLayer
     fn  backproporgate(&mut self, input: &AIVec, error: &AIVec, backprop_error: &mut AIVec, learn_rate: f64) {
         // Step 1 - Calculate the Activation Input
         self.activation_inputs.fill(0.0);
-        linalg::general_mat_vec_mul(1.0, &self.input_weights, &input.t(), 1.0, &mut self.activation_inputs);
+        linalg::general_mat_vec_mul(1.0, &self.input_weights, input, 1.0, &mut self.activation_inputs);
         self.activation_inputs += &self.bias_weights;
 
         // Step 2 - Calculate the Activation Derivative (length of activation input)
