@@ -103,32 +103,32 @@ impl Layer for BaseLayer
 
     fn feedforward(&mut self, input: &AIVec, output: &mut AIVec){
         // Step 1 - Calculate the Activation Input
-        Zip::from(&mut self.activation_inputs).apply(|x| *x = 0.0);
+        Zip::from(&mut self.activation_inputs).for_each(|x| *x = 0.0);
         linalg::general_mat_vec_mul(1.0, &self.input_weights, input, 1.0, &mut self.activation_inputs);
         self.activation_inputs += &self.bias_weights;
 
         // Step 2 - Calculate the Activation (i.e. the output) for Sigmoid
         Zip::from( output )
             .and( &self.activation_inputs )
-            .apply( | output, &input |  *output = sigmoid(input) );
+            .for_each( | output, &input |  *output = sigmoid(input) );
     }
 
     fn  backproporgate(&mut self, input: &AIVec, error: &AIVec, backprop_error: &mut AIVec, learn_rate: f64) {
         // Step 1 - Calculate the Activation Input
         self.activation_inputs.fill(0.0);
-        linalg::general_mat_vec_mul(1.0, &self.input_weights, input, 1.0, &mut self.activation_inputs);
+        linalg::general_mat_vec_mul(1.0, &self.input_weights, &input.t(), 1.0, &mut self.activation_inputs);
         self.activation_inputs += &self.bias_weights;
 
         // Step 2 - Calculate the Activation Derivative (length of activation input)
         Zip::from( &mut self.activation_derivative)
             .and( &self.activation_inputs )
-            .apply( | a_d, &a_i | *a_d = sigmoid_derivative( a_i ) );
+            .for_each( | a_d, &a_i | *a_d = sigmoid_derivative( a_i ) );
 
         // Step 3 - Calculate the Bias Derivative
         Zip::from( &mut self.delta )
             .and( &self.activation_derivative )
             .and( error )
-            .apply( |b_der, &act_der, &error| *b_der = act_der*error );
+            .for_each( |b_der, &act_der, &error| *b_der = act_der*error );
 
         
         // Step 4 - Calculate the Weight Derivative - (reusing b_der as this is act_d * error)
